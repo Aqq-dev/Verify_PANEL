@@ -141,10 +141,10 @@ class RoleSelect(discord.ui.Select):
         member = interaction.user
         if role in member.roles:
             await member.remove_roles(role)
-            await interaction.response.send_message(f"<:delete:1350737885053190234> {role.name} を削除しました。", ephemeral=True)
+            await interaction.response.send_message(f"<:delete:1379626208521883739> {role.name} を削除しました。", ephemeral=True)
         else:
             await member.add_roles(role)
-            await interaction.response.send_message(f"<:Verify_Check:1350724343365373952> {role.name} を付与しました。", ephemeral=True)
+            await interaction.response.send_message(f"<:check:1379625033370046625> {role.name} を付与しました。", ephemeral=True)
 
 class RoleSelectView(discord.ui.View):
     def __init__(self, roles):
@@ -164,13 +164,14 @@ async def role_panel(interaction: discord.Interaction, role: discord.Role):
 
 @bot.event
 async def on_ready():
-    activity = discord.Activity(type=discord.ActivityType.watching, name="認証ボタン")
+    activity = discord.Activity(type=discord.ActivityType.watching, name="Created by @freak074495")
     await bot.change_presence(activity=activity)
     print(f'{bot.user} がログインしました！')
     await bot.tree.sync()
     for guild in bot.guilds:
         for role in guild.roles:
             bot.add_view(VerifyView(role.id))
+            bot.add_view(VerifyCalcView(role.id))
     bot.add_view(RoleSelectView([]))
 
 DISCORD_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
