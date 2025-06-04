@@ -4,7 +4,6 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from keep_alive import keep_alive
-from discord.ui import Select, View
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -46,13 +45,17 @@ async def verify_button(interaction: discord.Interaction, role: discord.Role, de
     await interaction.response.send_message(embed=embed, view=view)
     bot.add_view(view)
 
-# 計算認証用のボタンとモーダル
-class VerifyModal(discord.ui.Modal, title="認証テスト"):
-    def __init__(self, answer: int, role: discord.Role):
-        super().__init__()
+# 計算認証用のモーダル
+class VerifyModal(discord.ui.Modal):
+    def __init__(self, expression: str, answer: int, role: discord.Role):
+        super().__init__(title=f"この式を解いてください: {expression}")
         self.answer = answer
         self.role = role
-        self.answer_input = discord.ui.TextInput(label="計算式の答えを入力してください", placeholder="数字のみ入力", required=True)
+        self.answer_input = discord.ui.TextInput(
+            label="計算式の答えを入力してください",
+            placeholder="数字のみ入力",
+            required=True
+        )
         self.add_item(self.answer_input)
 
     async def on_submit(self, interaction: discord.Interaction):
@@ -71,14 +74,14 @@ class VerifyModal(discord.ui.Modal, title="認証テスト"):
         else:
             await interaction.response.send_message("<:cross:1379625074658644031> 不正解です。もう一度お試しください。", ephemeral=True)
 
+# 計算認証ボタン
 class VerifyCalcButton(discord.ui.Button):
     def __init__(self, role_id: int):
-        super().__init__(style=discord.ButtonStyle.success, label="✅ 認証/Verify", custom_id=f"calcverify_{role_id}")
+        super().__init__(style=discord.ButtonStyle.success, label="✅ 認証/Verify (計算)", custom_id=f"calcverify_{role_id}")
         self.role_id = role_id
 
     async def callback(self, interaction: discord.Interaction):
         guild = interaction.guild
-        member = interaction.user
         role = guild.get_role(self.role_id)
         if not role:
             await interaction.response.send_message("ロールが見つかりません。", ephemeral=True)
@@ -90,12 +93,11 @@ class VerifyCalcButton(discord.ui.Button):
 
         try:
             answer = eval(expression)
-        except:
+        except Exception:
             await interaction.response.send_message("計算エラーが発生しました。", ephemeral=True)
             return
 
-        modal = VerifyModal(answer, role)
-        modal.title = f"この式を解いてください: {expression}"
+        modal = VerifyModal(expression, answer, role)
         await interaction.response.send_modal(modal)
 
 class VerifyCalcView(discord.ui.View):
@@ -113,7 +115,7 @@ async def verify_calculation(interaction: discord.Interaction, role: discord.Rol
     await interaction.response.send_message(embed=embed, view=view)
     bot.add_view(view)
 
-# ロール選択
+# ロール選択用セレクト
 class RoleSelect(discord.ui.Select):
     def __init__(self, roles):
         options = [discord.SelectOption(label=role.name, value=str(role.id)) for role in roles]
@@ -147,6 +149,7 @@ async def role_panel(interaction: discord.Interaction, role: discord.Role):
     embed.add_field(name="付与されるロール", value="\n".join([role.mention for role in guild_roles]))
     view = RoleSelectView(guild_roles)
     await interaction.response.send_message(embed=embed, view=view)
+    bot.add_view(view)
 
 @bot.event
 async def on_ready():
