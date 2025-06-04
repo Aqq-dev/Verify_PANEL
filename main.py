@@ -1,4 +1,5 @@
 import os
+import random
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -9,6 +10,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+# 通常の認証ボタン
 class VerifyButton(discord.ui.Button):
     def __init__(self, role_id: int):
         super().__init__(style=discord.ButtonStyle.success, label="✅ 認証/Verify", custom_id=f"verify_{role_id}")
@@ -36,26 +38,21 @@ class VerifyView(discord.ui.View):
 
 @bot.tree.command(name="verify-button", description="認証パネルを作成します")
 @app_commands.describe(role="付与するロール", description="認証パネルの説明", image_url="埋め込む画像URL")
-async def verify(interaction: discord.Interaction, role: discord.Role, description: str, image_url: str = None):
+async def verify_button(interaction: discord.Interaction, role: discord.Role, description: str, image_url: str = None):
     embed = discord.Embed(title="認証パネル", description=description, color=discord.Color.green())
     if image_url:
         embed.set_image(url=image_url)
-
     view = VerifyView(role.id)
     await interaction.response.send_message(embed=embed, view=view)
     bot.add_view(view)
 
+# 計算認証用のボタンとモーダル
 class VerifyModal(discord.ui.Modal, title="認証テスト"):
     def __init__(self, answer: int, role: discord.Role):
         super().__init__()
         self.answer = answer
         self.role = role
-
-        self.answer_input = discord.ui.TextInput(
-            label="計算式の答えを入力してください",
-            placeholder="数字のみ入力",
-            required=True
-        )
+        self.answer_input = discord.ui.TextInput(label="計算式の答えを入力してください", placeholder="数字のみ入力", required=True)
         self.add_item(self.answer_input)
 
     async def on_submit(self, interaction: discord.Interaction):
@@ -74,28 +71,22 @@ class VerifyModal(discord.ui.Modal, title="認証テスト"):
         else:
             await interaction.response.send_message("<:cross:1379625074658644031> 不正解です。もう一度お試しください。", ephemeral=True)
 
-
-class VerifyButton(discord.ui.Button):
+class VerifyCalcButton(discord.ui.Button):
     def __init__(self, role_id: int):
-        super().__init__(style=discord.ButtonStyle.success, label="✅ 認証/Verify", custom_id=f"verify_{role_id}")
+        super().__init__(style=discord.ButtonStyle.success, label="✅ 認証/Verify", custom_id=f"calcverify_{role_id}")
         self.role_id = role_id
 
     async def callback(self, interaction: discord.Interaction):
         guild = interaction.guild
         member = interaction.user
         role = guild.get_role(self.role_id)
-
         if not role:
-            await interaction.response.send_message("<:questionmark:1379625207773528154> ロールが見つかりません。", ephemeral=True)
+            await interaction.response.send_message("ロールが見つかりません。", ephemeral=True)
             return
 
         numbers = [random.randint(1, 10) for _ in range(10)]
         operators = [random.choice(["+", "-", "*"]) for _ in range(9)]
-
-        expression = ""
-        for i in range(9):
-            expression += f"{numbers[i]} {operators[i]} "
-        expression += f"{numbers[9]}"
+        expression = "".join(f"{n}{op}" for n, op in zip(numbers, operators)) + str(numbers[-1])
 
         try:
             answer = eval(expression)
@@ -107,24 +98,22 @@ class VerifyButton(discord.ui.Button):
         modal.title = f"この式を解いてください: {expression}"
         await interaction.response.send_modal(modal)
 
-
-class VerifyView(discord.ui.View):
+class VerifyCalcView(discord.ui.View):
     def __init__(self, role_id: int):
         super().__init__(timeout=None)
-        self.add_item(VerifyButton(role_id))
-
+        self.add_item(VerifyCalcButton(role_id))
 
 @bot.tree.command(name="verify-calculation", description="認証パネルを作成します (計算)")
 @app_commands.describe(role="付与するロール", description="認証パネルの説明", image_url="埋め込む画像URL")
-async def verify(interaction: discord.Interaction, role: discord.Role, description: str, image_url: str = None):
+async def verify_calculation(interaction: discord.Interaction, role: discord.Role, description: str, image_url: str = None):
     embed = discord.Embed(title="認証パネル", description=description, color=discord.Color.green())
     if image_url:
         embed.set_image(url=image_url)
-
-    view = VerifyView(role.id)
+    view = VerifyCalcView(role.id)
     await interaction.response.send_message(embed=embed, view=view)
     bot.add_view(view)
 
+# ロール選択
 class RoleSelect(discord.ui.Select):
     def __init__(self, roles):
         options = [discord.SelectOption(label=role.name, value=str(role.id)) for role in roles]
@@ -152,13 +141,10 @@ class RoleSelectView(discord.ui.View):
         self.add_item(RoleSelect(roles))
 
 @bot.tree.command(name="role_panel", description="ロール選択パネルを作成")
-@app_commands.describe()
 async def role_panel(interaction: discord.Interaction, role: discord.Role):
     guild_roles = [role]
-
     embed = discord.Embed(title="ロール付与", description="以下のロールを選択できます。", color=discord.Color.blue())
     embed.add_field(name="付与されるロール", value="\n".join([role.mention for role in guild_roles]))
-
     view = RoleSelectView(guild_roles)
     await interaction.response.send_message(embed=embed, view=view)
 
